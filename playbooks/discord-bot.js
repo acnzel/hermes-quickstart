@@ -9,7 +9,8 @@
 //
 // STEP
 //   status   지금 화면 상태만 출력
-//   create   새 앱 생성. 끝나면 보통 캡차가 뜬다 (사람)
+//   create   새 앱 생성. 끝나면 캡차가 뜰 수 있다 (사람)
+//   open     앱 목록에서 APP_NAME 앱의 봇 화면으로 들어간다. 다른 페이지에 갔다 왔을 때 쓴다
 //   intents  Server Members, Message Content intent 켜고 저장
 //   reset    토큰 초기화. 끝나면 다단계 인증 창이 뜬다 (사람)
 //   token    화면의 토큰을 `TOK=...` 한 줄로 출력. 반드시 파이프로만 쓴다 (AGENTS.md 참고)
@@ -20,6 +21,7 @@
 
 const TOKEN_RE = /[\w-]{20,}\.[\w-]{5,8}\.[\w-]{20,}/;
 const SAVE = /button "(변경 사항 저장|Save Changes)"/;
+const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const appId = () => (page.url().match(/applications\/(\d+)/) || [])[1];
 
 // 디스코드의 체크박스와 스위치는 클릭으로 안 바뀐다. focus 한 뒤 Space 로 누른다.
@@ -61,6 +63,15 @@ if (STEP === "create") {
   await clk(/button "(만들기|Create)"/);
   await sleep(7000);
   await status(STEP);
+} else if (STEP === "open") {
+  await page.goto("https://discord.com/developers/applications");
+  await sleep(4000);
+  // 목록의 링크 이름은 머리글자가 앞에 붙는다. 예: "HV Hermes Verify"
+  await clk(new RegExp(`link "[^"]*${escapeRe(APP_NAME)}"`));
+  await sleep(4000);
+  await clk(/link "(봇|Bot)"/);
+  await sleep(4000);
+  await status(STEP);
 } else if (STEP === "intents") {
   await clk(/link "(봇|Bot)"/);
   await sleep(4000);
@@ -99,7 +110,7 @@ if (STEP === "create") {
   await sleep(6000);
   await clk(/combobox "(서버에 추가:|Add to server:?)"/);
   await sleep(1500);
-  await clk(new RegExp(`option "${SERVER_NAME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+  await clk(new RegExp(`option "${escapeRe(SERVER_NAME)}"`));
   await sleep(1200);
   await clk(/button "(계속하기|Continue)"/);
   await sleep(3500);

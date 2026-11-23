@@ -2,8 +2,8 @@
 // 실행: cat playbooks/lib/oracle-helpers.js playbooks/oracle-create-vm.js | aside repl --file -
 // 전제: Aside 에 Oracle Cloud 콘솔 탭이 로그인된 상태로 열려 있다.
 //
-// 상태: 2026-11-23 에 이 순서를 여러 번의 호출로 나눠 실행해 VM 2대를 만들었다.
-//       한 파일로 이어 붙인 이 버전은 아직 통으로 돌려 보지 않았다.
+// 상태: 2026-11-23 에 이 파일을 통째로 실행해 VM 을 만들었다 (88초, 기존 VCN 이 있는 계정).
+//       VCN 이 없는 계정에서 새 VCN 을 만드는 갈래는 이 파일로는 돌려 보지 않았다.
 //
 // 바꿔 넣을 값
 const VM_NAME = "hermes-agent";
