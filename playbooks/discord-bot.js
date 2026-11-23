@@ -19,6 +19,8 @@
 // 화면 문구는 한국어 포털에서 검증했다. 영어 문구는 함께 넣었지만 검증하지 않았다.
 
 const TOKEN_RE = /[\w-]{20,}\.[\w-]{5,8}\.[\w-]{20,}/;
+const SAVE = /button "(변경 사항 저장|Save Changes)"/;
+const appId = () => (page.url().match(/applications\/(\d+)/) || [])[1];
 
 // 디스코드의 체크박스와 스위치는 클릭으로 안 바뀐다. focus 한 뒤 Space 로 누른다.
 async function press(re) {
@@ -27,8 +29,8 @@ async function press(re) {
   await page.keyboard.press("Space");
   await sleep(700);
 }
-async function isChecked(re) {
-  const line = (await tree()).match(new RegExp("^.*(?:" + re.source + ").*$", "mi"));
+function isChecked(snapshot, re) {
+  const line = snapshot.match(new RegExp("^.*(?:" + re.source + ").*$", "mi"));
   return !!line && line[0].includes("[checked]");
 }
 async function status(step) {
@@ -36,7 +38,7 @@ async function status(step) {
   const out = {
     step,
     loggedIn: !/discord\.com\/login/.test(page.url()),
-    appId: (page.url().match(/applications\/(\d+)/) || [])[1] ? "found" : "none",
+    appId: appId() ? "found" : "none",
     captcha: /hCaptcha/.test(t),
     mfa: /다단계 인증|Multi-Factor|Two-Factor/i.test(t),
     tokenVisible: TOKEN_RE.test(t),
@@ -62,16 +64,19 @@ if (STEP === "create") {
 } else if (STEP === "intents") {
   await clk(/link "(봇|Bot)"/);
   await sleep(4000);
-  if (!(await isChecked(SWITCH_MEMBERS))) await press(SWITCH_MEMBERS);
-  if (!(await isChecked(SWITCH_CONTENT))) await press(SWITCH_CONTENT);
-  const save = (await tree()).match(/button "(변경 사항 저장|Save Changes)"/);
-  if (save) {
-    await clk(/button "(변경 사항 저장|Save Changes)"/);
+  const before = await tree();
+  for (const sw of [SWITCH_MEMBERS, SWITCH_CONTENT]) {
+    if (!isChecked(before, sw)) await press(sw);
+  }
+  // 바꾼 것이 있을 때만 저장 버튼이 나타난다.
+  if (SAVE.test(await tree())) {
+    await clk(SAVE);
     await sleep(3500);
   }
   await page.reload();
   await sleep(5000);
-  if (!(await isChecked(SWITCH_MEMBERS)) || !(await isChecked(SWITCH_CONTENT))) {
+  const after = await tree();
+  if (!isChecked(after, SWITCH_MEMBERS) || !isChecked(after, SWITCH_CONTENT)) {
     throw new Error("intent 가 저장되지 않았다.");
   }
   await status(STEP);
@@ -87,10 +92,10 @@ if (STEP === "create") {
   if (!m) throw new Error("화면에 토큰이 없다. reset 단계와 다단계 인증이 끝났는지 확인한다.");
   console.log("TOK=" + m[0]);
 } else if (STEP === "invite") {
-  const appId = (page.url().match(/applications\/(\d+)/) || [])[1];
-  if (!appId) throw new Error("앱 페이지가 아니다. 개발자 포털의 앱 화면에서 실행한다.");
+  const id = appId();
+  if (!id) throw new Error("앱 페이지가 아니다. 개발자 포털의 앱 화면에서 실행한다.");
   // 권한 309237763136: 채널 보기, 메시지 보내기, 스레드, 링크·파일 첨부, 기록 보기, 반응. 관리자 권한 없음.
-  await page.goto(`https://discord.com/oauth2/authorize?client_id=${appId}&scope=bot+applications.commands&permissions=309237763136`);
+  await page.goto(`https://discord.com/oauth2/authorize?client_id=${id}&scope=bot+applications.commands&permissions=309237763136`);
   await sleep(6000);
   await clk(/combobox "(서버에 추가:|Add to server:?)"/);
   await sleep(1500);

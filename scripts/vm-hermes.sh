@@ -34,7 +34,13 @@ set_env() { # key value
 }
 get_env() { grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-; }
 gateway_state() { systemctl --user is-active hermes-gateway 2>/dev/null || true; }
-codex_logged_in() { local out; out="$(hermes auth status openai-codex 2>&1 | plain || true)"; grep -q 'logged in' <<< "$out"; }
+is_set() { [ -n "$(get_env "$1")" ] && echo set || echo none; }
+last_ts() { grep "$1" "$GW_LOG" 2>/dev/null | tail -1 | cut -c1-19 || true; }
+# 명령의 출력을 색 코드 없이 돌려준다. pipefail 에서 `명령 | grep -q` 는 grep 이 먼저 끝나면
+# 앞 명령이 SIGPIPE 로 죽어 실패로 잡히므로, 출력 검사는 항상 이 함수로 받아서 한다.
+capture() { "$@" 2>&1 | plain || true; }
+# `hermes auth status` 는 로그인 여부와 관계없이 exit 0 이라 문구로 판단한다.
+codex_logged_in() { grep -q 'logged in' <<< "$(capture hermes auth status openai-codex)"; }
 
 cmd_setup() {
   cloud-init status --wait >/dev/null 2>&1 || true
@@ -56,9 +62,7 @@ cmd_setup() {
   fi
 
   # 기본 설치에는 discord.py 가 없다.
-  # pipefail 에서 `명령 | grep -q` 는 grep 이 먼저 끝나면 실패로 잡힌다. 출력을 변수에 담고 검사한다.
-  local doctor; doctor="$(hermes doctor 2>&1 | plain || true)"
-  if ! grep -q '✓ discord.py' <<< "$doctor"; then
+  if ! grep -q '✓ discord.py' <<< "$(capture hermes doctor)"; then
     say "디스코드 의존성 설치"
     hermes pm install --extra discord
   fi
@@ -92,10 +96,9 @@ cmd_status() {
   fi
   echo "gateway=$(gateway_state)"
   echo "weekly_update_timer=$(systemctl --user is-active hermes-weekly-update.timer 2>/dev/null || true)"
-  echo "discord_token=$([ -n "$(get_env DISCORD_BOT_TOKEN)" ] && echo set || echo none)"
-  echo "discord_allowed_users=$([ -n "$(get_env DISCORD_ALLOWED_USERS)" ] && echo set || echo none)"
-  local recent; recent="$(tail -200 "$GW_LOG" 2>/dev/null || true)"
-  echo "discord_connected=$(grep -q 'discord connected' <<< "$recent" && echo yes || echo no)"
+  echo "discord_token=$(is_set DISCORD_BOT_TOKEN)"
+  echo "discord_allowed_users=$(is_set DISCORD_ALLOWED_USERS)"
+  echo "discord_connected=$(grep -q 'discord connected' <<< "$(capture tail -200 "$GW_LOG")" && echo yes || echo no)"
 }
 
 cmd_login_start() {
@@ -121,18 +124,19 @@ cmd_login_status() {
 }
 
 cmd_model() {
-  local model="${1:-$DEFAULT_MODEL}" out
+  local model="${1:-$DEFAULT_MODEL}" out rc=0
   hermes config set model.provider openai-codex >/dev/null
   hermes config set model.default "$model" >/dev/null
   # 구독으로 안 되는 모델이 있다. 설정한 뒤 반드시 한 번 호출해서 확인한다.
-  out="$(timeout 240 hermes -z '한 단어로 답해: 1+1은?' 2>&1 | plain || true)"
-  if grep -qiE 'rejected|not supported|not entitled' <<< "$out"; then
-    die "모델 $model 은 이 ChatGPT 계정으로 쓸 수 없다. gpt-5.6-luna, gpt-6-luna, gpt-6-sol 중에서 고른다."
-  fi
-  [ -n "$(echo "$out" | tr -d '[:space:]')" ] || die "모델이 답하지 않았다."
-  [ "$(gateway_state)" = active ] && systemctl --user restart hermes-gateway
+  # 거절되면 hermes 가 exit 2 로 끝난다 (정상은 0).
+  out="$(timeout 240 hermes -z '한 단어로 답해: 1+1은?' 2>&1)" || rc=$?
+  out="$(plain <<< "$out")"
+  [ "$rc" -eq 0 ] || die "모델 $model 호출 실패 (exit $rc). 이 ChatGPT 계정으로 쓸 수 없는 모델일 수 있다. gpt-5.6-luna, gpt-6-luna, gpt-6-sol 중에서 고른다."
+  [ -n "$(tr -d '[:space:]' <<< "$out")" ] || die "모델이 답하지 않았다."
+  # 디스코드가 아직 연결 전이면 discord-connect 가 어차피 재시작한다.
+  if [ "$(is_set DISCORD_BOT_TOKEN)" = set ] && [ "$(gateway_state)" = active ]; then systemctl --user restart hermes-gateway; fi
   echo "model=$model"
-  echo "test_reply=$(echo "$out" | grep -vE '^\s*$' | tail -1 | cut -c1-80)"
+  echo "test_reply=$(grep -vE '^\s*$' <<< "$out" | tail -1 | cut -c1-80)"
 }
 
 cmd_set_token() {
@@ -189,8 +193,7 @@ PY
   local connected=no
   for _ in $(seq 1 24); do
     sleep 5
-    local fresh; fresh="$(awk -v s="$since" '$0 >= s' "$GW_LOG" 2>/dev/null || true)"
-    if grep -q 'discord connected' <<< "$fresh"; then connected=yes; break; fi
+    if grep -q 'discord connected' <<< "$(capture awk -v s="$since" '$0 >= s' "$GW_LOG")"; then connected=yes; break; fi
   done
   [ "$connected" = yes ] || die "게이트웨이가 디스코드에 연결되지 않았다. 로그: $GW_LOG"
   hermes send -t discord "Hermes 가 연결됐어요. 이 채널에 멘션 없이 아무 말이나 보내 보세요." >/dev/null
@@ -202,8 +205,8 @@ PY
 cmd_verify() {
   echo "gateway=$(gateway_state)"
   local inbound reply
-  inbound="$(grep 'inbound message: platform=discord' "$GW_LOG" 2>/dev/null | tail -1 | cut -c1-19)"
-  reply="$(grep 'response ready: platform=discord' "$GW_LOG" 2>/dev/null | tail -1 | cut -c1-19)"
+  inbound="$(last_ts 'inbound message: platform=discord')"
+  reply="$(last_ts 'response ready: platform=discord')"
   echo "last_inbound=${inbound:-none}"
   echo "last_reply=${reply:-none}"
   [ -n "$inbound" ] && [ -n "$reply" ] && [[ ! "$reply" < "$inbound" ]] || die "아직 디스코드에서 받은 메시지에 답한 기록이 없다."
