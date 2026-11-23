@@ -7,7 +7,7 @@
 
 ## 원칙
 
-1. **사람을 부르는 횟수를 줄인다.** 사람이 할 일은 5번으로 정해져 있다 (`docs/prerequisites.md`). 그 밖에는 묻지 않고 진행한다.
+1. **사람을 부르는 횟수를 줄인다.** 사람이 할 일은 최대 5번으로 정해져 있다 (`docs/prerequisites.md`). 그 밖에는 묻지 않고 진행한다.
 2. **사람을 부를 때는 한 번에 하나만, 무엇을 누르는지까지 말한다.** 아래 "사람에게 하는 말"의 문구를 쓴다.
 3. **비밀값을 화면에 찍지 않는다.** 봇 토큰은 파이프로만 옮긴다. 채팅, 로그, 파일에 남기지 않는다.
 4. **끝났다고 말하기 전에 확인한다.** 각 단계의 "확인" 명령이 통과해야 다음으로 간다.
@@ -70,10 +70,14 @@ ssh -i ~/.ssh/oracle.key -o StrictHostKeyChecking=accept-new ubuntu@<IP> hostnam
 ```bash
 ssh -i ~/.ssh/oracle.key ubuntu@<IP> 'mkdir -p ~/hermes-quickstart'
 scp -i ~/.ssh/oracle.key scripts/*.sh ubuntu@<IP>:hermes-quickstart/
-ssh -i ~/.ssh/oracle.key ubuntu@<IP> 'cd ~/hermes-quickstart && nohup bash vm-hermes.sh setup > setup.log 2>&1 &'
+ssh -i ~/.ssh/oracle.key ubuntu@<IP> 'cd ~/hermes-quickstart && nohup bash vm-hermes.sh setup > setup.log 2>&1 < /dev/null &'
 ```
 
-25분쯤 걸린다. SSH 를 붙잡고 기다리지 말고 `nohup` 으로 띄운 뒤 1~2분 간격으로 확인한다.
+- `< /dev/null` 을 빼면 SSH 가 끝나지 않고 붙잡힌다.
+- IP 를 셸 변수에 담았다면 `"ubuntu@${IP}:hermes-quickstart/"` 처럼 중괄호로 감싼다.
+  zsh 는 `$IP:h` 의 `:h` 를 변수 수식어로 읽어서 주소가 깨진다.
+
+30분쯤 걸린다 (빈 VM 에서 32분). SSH 를 붙잡고 기다리지 말고 `nohup` 으로 띄운 뒤 1~2분 간격으로 확인한다.
 
 ```bash
 ssh -i ~/.ssh/oracle.key ubuntu@<IP> 'tail -2 ~/hermes-quickstart/setup.log'
@@ -107,7 +111,7 @@ ssh -i ~/.ssh/oracle.key ubuntu@<IP> 'cd ~/hermes-quickstart && bash vm-hermes.s
 run() { (echo "const STEP=\"$1\", APP_NAME=\"Hermes\", SERVER_NAME=\"<서버 이름>\";"; \
          cat playbooks/lib/discord-helpers.js playbooks/discord-bot.js) | aside repl --file -; }
 
-run create      # → 캡차 (사람)
+run create      # → 캡차가 뜰 수 있다 (사람). 안 뜰 때도 있다
 run intents
 run reset       # → 다단계 인증 (사람). 사용자에게 화면을 닫지 말라고 한다
 ```
@@ -128,6 +132,9 @@ ssh -i ~/.ssh/oracle.key ubuntu@<IP> 'bash ~/hermes-quickstart/vm-hermes.sh disc
 
 `discord-connect` 는 사용자 ID 와 채널 ID 를 봇 토큰으로 조회해서 넣는다. 사용자에게 ID 를 묻지 않는다.
 홈 채널은 멘션 없이 답하도록 설정한다.
+
+`intents`, `reset`, `invite` 는 앱 화면에서 실행해야 한다. 다른 페이지로 갔다가 돌아왔으면 `run open` 으로
+앱의 봇 화면에 다시 들어간다. `open -a Aside <주소>` 는 디스코드 탭을 그 주소로 옮기므로, 앱을 만든 뒤에는 쓰지 않는다.
 
 기존 앱이 있어도 재사용하지 않는다. 그 앱의 토큰을 초기화하면 다른 곳에서 쓰던 봇이 멈춘다.
 

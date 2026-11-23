@@ -347,14 +347,47 @@ ssh -i ~/.ssh/oracle.key ubuntu@<공인 IP> 'bash /tmp/install-weekly-update.sh'
 대신 브라우저 종류와 상관없는 수동 경로를 뒀다 (`docs/manual-fallback.md`). 브라우저 클릭만 사람이 하고
 나머지는 에이전트가 한다. 토큰은 사람이 자기 터미널에서 `vm-hermes.sh set-token` 을 실행해 숨김 입력으로 넣는다.
 
-## 11. 미확인으로 남은 것
+## 11. 빈 VM 에서 다시 세팅 (검증)
+
+VM 을 새로 만들고 `AGENTS.md` 와 레포의 스크립트만으로 끝까지 진행했다. 같은 계정, 같은 컴퓨터에서 했다.
+
+| 단계 | 방법 | 결과 |
+|---|---|---|
+| VM 생성 | `playbooks/oracle-create-vm.js` 를 통째 실행 | 88초. 공인 IP 가 바로 붙음 |
+| Hermes 설치 | `vm-hermes.sh setup` | 1909초 (약 32분). 스왑, 설치, 디스코드 의존성, 게이트웨이, 주간 업데이트 타이머 |
+| ChatGPT 로그인 | `login-start` → 사람 → `login-status` | 주소와 코드 출력, 로그인 확인 |
+| 모델 | `model` | `gpt-5.6-luna`, 테스트 응답 확인 |
+| 디스코드 앱 | `discord-bot.js` 의 `create`, `intents` | 캡차 없이 생성됨 |
+| 토큰 | `reset` → 사람(인증 코드) → `token` 을 `set-token` 으로 파이프 | `bot_name` 확인 |
+| 초대 | `invite` → 사람(캡차) | 서버에 들어감 |
+| 연결 | `discord-connect` | `discord_connected=yes` |
+| 대화 | 사람이 메시지 → `verify` | `conversation=ok`. 수신부터 응답까지 19초 |
+
+진행 중 사람 개입: ChatGPT 코드, 인증 코드, 캡차 1번, 테스트 메시지. 모두 4번이다.
+시작 전에 Oracle 콘솔 로그인이 풀려 있어서 한 번 더 로그인했다.
+
+대화 직후 시스템 가용 메모리 366MB, 스왑 41MB.
+
+### 검증에서 찾아 고친 것
+
+1. **zsh 의 `$IP:h`.** `scp ... ubuntu@$IP:hermes-quickstart/` 에서 zsh 가 `:h` 를 변수 수식어로 읽어 주소가 깨졌다.
+   `"ubuntu@${IP}:hermes-quickstart/"` 로 쓴다.
+2. **`nohup` 이 SSH 를 붙잡는다.** 표준 입력을 닫지 않으면 SSH 가 끝나지 않는다. `< /dev/null` 을 붙인다.
+3. **앱 생성 캡차는 매번 뜨지 않는다.** 첫 실행에서는 떴고 검증에서는 안 떴다. 문서의 "5번"을 "최대 5번"으로 고쳤다.
+4. **앱 화면을 잃는다.** `open -a Aside <개발자 포털 주소>` 를 다시 실행하니 디스코드 탭이 앱 목록으로 돌아갔고,
+   `reset` 이 버튼을 못 찾았다. 앱 목록에서 이름으로 다시 들어가는 `open` 단계를 추가했다.
+   목록의 링크 이름은 `HV Hermes Verify` 처럼 머리글자가 앞에 붙는다.
+   추가한 뒤 `open` 을 실행해 앱의 봇 화면으로 들어가는 것을 확인했다.
+5. **설치 시간.** 25분이 아니라 32분이 걸렸다. 문서의 예상 시간을 고쳤다.
+
+## 12. 미확인으로 남은 것
 
 - 새 버전이 있을 때의 주간 업데이트 (소요 시간, 알림, 실패 시 복구)
 - 2단계 인증을 안 켠 디스코드 계정의 토큰 발급 화면
 - 긴 대화나 도구를 여러 번 쓰는 작업에서의 메모리
 - ChatGPT 요금제별로 쓸 수 있는 모델 차이
-- `playbooks/oracle-create-vm.js`, `oracle-assign-public-ip.js` 를 한 파일로 통째 실행
-- 빈 VM 에서 `AGENTS.md` 만으로 처음부터 끝까지 세팅
+- `playbooks/oracle-assign-public-ip.js` 를 통째 실행. VCN 이 없는 계정에서의 VM 생성
+- 다른 사람이 자기 계정과 컴퓨터로 처음부터 끝까지 세팅
 - `docs/manual-fallback.md` 를 사람이 처음부터 끝까지 따라 하기
 - 영어 화면의 디스코드 개발자 포털
 - 디스코드 서버 생성을 에이전트가 대신 할 수 있는지 (이번에는 사람이 만들었다)
