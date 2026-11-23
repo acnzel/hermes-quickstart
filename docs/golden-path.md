@@ -206,10 +206,46 @@ Aside 로 `discord.com/developers/applications` 를 조작한다. 사람이 미�
   `aside repl` 과 `open -a Aside` 는 크레딧 없이 된다.
 - 로그인된 브라우저를 써도 캡차는 뜬다. 앱 생성과 봇 초대에서 각각 한 번씩 떴다.
 
-## 7. 이후 (미확인)
+## 7. 디스코드 연결 (사람 개입 0번)
 
-- 초대 캡차 통과 뒤 봇이 서버에 들어갔는지 확인
-- 사용자 ID, 채널 ID 조회와 `DISCORD_ALLOWED_USERS`, `DISCORD_HOME_CHANNEL` 설정
-- 게이트웨이 재시작, 디스코드에서 대화 확인, 대화 중 메모리
+사용자 ID 와 채널 ID 는 사람에게 묻지 않는다. 봇 토큰으로 디스코드 API 를 조회하면 나온다.
+VM 에서 실행한다.
 
-- 디스코드 봇 생성과 `DISCORD_BOT_TOKEN`, `DISCORD_ALLOWED_USERS`, `DISCORD_HOME_CHANNEL`
+| 값 | 조회 방법 |
+|---|---|
+| 서버 ID | `GET /users/@me/guilds` 의 첫 항목 |
+| 사용자 ID | `GET /guilds/<서버 ID>` 의 `owner_id`. 서버를 만든 사람이 곧 사용자다 |
+| 홈 채널 ID | `GET /guilds/<서버 ID>/channels` 에서 `type == 0` 인 것 중 `position` 이 가장 앞인 채널 |
+
+`~/.hermes/.env` 에 넣는 키:
+
+```
+DISCORD_BOT_TOKEN=...
+DISCORD_ALLOWED_USERS=<사용자 ID>
+DISCORD_HOME_CHANNEL=<채널 ID>
+DISCORD_HOME_CHANNEL_NAME=<채널 이름>
+```
+
+`DISCORD_ALLOWED_USERS` 가 없으면 게이트웨이가 모든 사용자를 거절한다.
+
+```bash
+systemctl --user restart hermes-gateway
+grep -i discord ~/.hermes/logs/gateway.log | tail     # "✓ discord connected" 가 나와야 한다
+hermes send -t discord "연결 테스트"                    # 홈 채널로 전송. LLM 을 거치지 않는다
+```
+
+| 측정 | 값 |
+|---|---|
+| 재시작부터 연결까지 | 13초 (`Connected as Hermes VM#4062`) |
+| `hermes send` | 성공. 홈 채널에 메시지 도착 |
+| 디스코드 연결 후 게이트웨이 메모리 | 272MB (연결 전 219MB) |
+| 시스템 가용 메모리 | 461MB / 952MB, 스왑 11MB |
+
+로그의 `Opus codec not found — voice channel playback disabled` 경고는 음성 채널 기능에만 해당한다. 무시한다.
+
+서버 채널에서는 봇을 `@멘션` 해야 답한다 (`DISCORD_REQUIRE_MENTION` 기본값 `true`).
+
+## 8. 이후 (미확인)
+
+- 사람이 디스코드에서 말을 걸었을 때 응답하는지 (수신 방향)
+- 대화 중 메모리
