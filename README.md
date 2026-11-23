@@ -58,6 +58,18 @@ Hermes 가 항상 좋은 것은 아닙니다.
 
 기능 전체는 [공식 문서](https://hermes-agent.nousresearch.com/docs/)에 있습니다.
 
+### 다른 사람들은 어디에 쓰나
+
+공개된 글에서 고른 다섯 가지입니다. 이 레포에서 해 본 것은 아닙니다.
+
+- 영업 문의 처리: 문의 접수부터 견적서, 세금계산서 요청까지
+- 정기 브리핑과 모니터링: 매일 뉴스, 주간 조사
+- 가격 감시와 리드 발굴: 시세보다 싼 매물 알림
+- 가족·소규모 팀 공용 비서: 메신저 하나에서 여럿이 같이
+- 오류 분석과 배포 전 점검: 읽기와 요약부터
+
+사례별 출처와 이 레포 구성에서 더 필요한 것은 [docs/use-cases.md](docs/use-cases.md) 에 있습니다.
+
 ## 비용
 
 | 항목 | 비용 |
@@ -217,5 +229,6 @@ systemctl --user restart hermes-gateway     # 재시작
 | `docs/prerequisites.md` | 시작 전 준비물, 사람이 손대는 순간 |
 | `docs/manual-fallback.md` | Aside 없이 직접 누르는 순서 |
 | `docs/golden-path.md` | 실제로 실행한 전 과정. 명령, 측정값, 함정 |
+| `docs/use-cases.md` | 다른 사람들이 공개한 활용 사례 다섯 가지와 출처 |
 | `playbooks/` | Oracle·디스코드 화면을 조작하는 Aside 스크립트 |
 | `scripts/` | 서버에서 도는 스크립트 (설치와 연결, 주간 업데이트) |
