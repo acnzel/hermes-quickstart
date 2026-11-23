@@ -12,7 +12,7 @@
 | Oracle 가입, 카드 등록, 리전 선택 | 1 | 자동화하지 않는다 |
 | Aside 에서 Oracle 콘솔 로그인 | 1 | 이후 세션이 유지됐다 |
 | VM 생성, 공인 IP, SSH, 스왑, Hermes 설치 | 0 | |
-| OpenAI 기기 승인 | 미확인 | |
+| OpenAI 기기 승인 | 1 | 주소를 열고 코드 입력. 15분 안에 해야 한다 |
 | 디스코드 서버·봇 | 미확인 | |
 
 ## 1. Oracle VM
@@ -107,7 +107,44 @@ systemctl --user is-active hermes-gateway
 
 메신저를 연결하고 대화 중일 때의 메모리는 미확인이다.
 
-## 5. 이후 (미확인)
+## 5. ChatGPT 구독 로그인 (사람 개입 1번)
 
-- `hermes auth add openai-codex --type oauth --no-browser` 기기 승인
+VM 에서 실행한다. 주소와 코드를 출력하고 승인을 기다린다.
+
+```bash
+nohup hermes auth add openai-codex --type oauth --no-browser --timeout 900 > ~/codex-auth.log 2>&1 &
+# 로그에서 주소와 코드를 읽어 사람에게 보여 준다
+#   https://auth.openai.com/codex/device
+#   XXXX-XXXXX
+```
+
+사람이 할 일: 자기 브라우저에서 주소를 열고, ChatGPT 로 로그인한 뒤 코드를 입력한다.
+
+- 코드는 약 15분 뒤 만료된다. 첫 시도는 사람이 자리에 없어서 만료됐고, 다시 띄워서 성공했다.
+  에이전트는 코드를 띄우기 전에 사람이 지금 승인할 수 있는지 먼저 확인해야 한다.
+- 성공하면 로그에 `Added openai-codex OAuth credential #1` 이 찍히고,
+  `hermes auth status openai-codex` 가 `logged in` 을 돌려준다.
+
+### 모델 설정
+
+로그인만으로는 구독을 쓰지 않는다. 설치 직후 기본값이 `model.default: anthropic/claude-opus-4.6`,
+`model.provider: auto` 다.
+
+```bash
+hermes config set model.provider openai-codex
+hermes config set model.default gpt-6-sol
+hermes -z "hostname 을 확인해서 알려줘"     # 한 번 호출해 확인
+```
+
+| 측정 | 값 |
+|---|---|
+| 테스트 호출 | 성공. `gpt-6-sol` 이 `hostname` 도구를 실행하고 답함 |
+| 응답 시간 | 24초 (CLI 기동 포함) |
+| 호출 직후 가용 메모리 | 372MB (게이트웨이가 같이 떠 있는 상태) |
+
+`gpt-6-sol` 은 Hermes 소스(`hermes_cli/codex_models.py`)가 구독용 기본값으로 두는 모델이다.
+요금제별로 쓸 수 있는 모델이 다른지는 미확인이다.
+
+## 6. 이후 (미확인)
+
 - 디스코드 봇 생성과 `DISCORD_BOT_TOKEN`, `DISCORD_ALLOWED_USERS`, `DISCORD_HOME_CHANNEL`
