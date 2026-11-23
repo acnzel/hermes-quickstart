@@ -314,11 +314,47 @@ ssh -i ~/.ssh/oracle.key ubuntu@<공인 IP> 'bash /tmp/install-weekly-update.sh'
 실제로 새 버전이 나왔을 때의 동작과 소요 시간은 미확인이다. 첫 설치가 24분 걸렸으므로
 타이머의 제한 시간을 90분(`TimeoutStartSec=5400`)으로 잡았다.
 
-## 10. 미확인으로 남은 것
+## 10. 스크립트로 묶기
+
+1~9절의 명령을 `scripts/vm-hermes.sh` 와 `playbooks/discord-bot.js` 로 묶고, 순서를 `AGENTS.md` 에 적었다.
+
+세팅이 끝난 VM 에서 `vm-hermes.sh` 를 명령별로 다시 실행한 결과:
+
+| 명령 | 결과 |
+|---|---|
+| `setup` | 변경 없이 18초에 끝남 |
+| `status` | 11개 항목 출력 |
+| `model` | `gpt-5.6-luna` 설정, 테스트 응답 "둘" |
+| `model gpt-5-nano` | 오류로 종료 (exit 1). 쓸 수 있는 모델을 안내 |
+| `set-token` (기존 토큰 재입력) | `bot_name` 출력 |
+| `set-token` (잘못된 값) | "토큰 형식이 아니다", exit 1 |
+| `discord-connect` | 서버와 홈 채널 조회, 재시작, 연결 확인 |
+| `verify` | `conversation=ok` |
+
+`login-start` 와 빈 VM 에서의 `setup` 은 스크립트로는 아직 실행하지 않았다.
+`playbooks/discord-bot.js` 는 `status` 단계만 실행했다. 나머지 단계는 같은 조작을 한 줄씩 실행해 확인한 것을 옮겼다.
+
+함정: `set -o pipefail` 에서 `명령 | grep -q` 는 grep 이 먼저 끝나면 앞 명령이 SIGPIPE 로 죽어 실패로 잡힌다.
+`hermes doctor | grep -q` 가 이 때문에 "디스코드 의존성 없음"으로 잘못 판단했다. 출력을 변수에 담은 뒤 검사한다.
+
+### Aside 가 안 될 때의 대체 경로
+
+크레딧이 떨어졌을 때 다른 AI 브라우저(ego lite)로 넘어가는 방안을 검토했고, 채택하지 않았다.
+
+- 크레딧이 0 이어도 `aside repl` 은 동작한다. 디스코드 봇 생성 전체를 크레딧 0 상태에서 끝냈다.
+- ego lite 0.6.3 앱에는 CLI, MCP, 원격 디버깅 옵션이 없다. 에이전트가 터미널에서 조작할 방법을 찾지 못했다.
+
+대신 브라우저 종류와 상관없는 수동 경로를 뒀다 (`docs/manual-fallback.md`). 브라우저 클릭만 사람이 하고
+나머지는 에이전트가 한다. 토큰은 사람이 자기 터미널에서 `vm-hermes.sh set-token` 을 실행해 숨김 입력으로 넣는다.
+
+## 11. 미확인으로 남은 것
 
 - 새 버전이 있을 때의 주간 업데이트 (소요 시간, 알림, 실패 시 복구)
 - 2단계 인증을 안 켠 디스코드 계정의 토큰 발급 화면
 - 긴 대화나 도구를 여러 번 쓰는 작업에서의 메모리
 - ChatGPT 요금제별로 쓸 수 있는 모델 차이
-- `playbooks/oracle-create-vm.js` 를 한 파일로 통째 실행
+- `playbooks/oracle-create-vm.js`, `oracle-assign-public-ip.js` 를 한 파일로 통째 실행
+- 빈 VM 에서 `AGENTS.md` 만으로 처음부터 끝까지 세팅
+- `docs/manual-fallback.md` 를 사람이 처음부터 끝까지 따라 하기
+- 영어 화면의 디스코드 개발자 포털
 - 디스코드 서버 생성을 에이전트가 대신 할 수 있는지 (이번에는 사람이 만들었다)
