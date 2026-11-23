@@ -13,7 +13,7 @@
 | Aside 에서 Oracle 콘솔 로그인 | 1 | 이후 세션이 유지됐다 |
 | VM 생성, 공인 IP, SSH, 스왑, Hermes 설치 | 0 | |
 | OpenAI 기기 승인 | 1 | 주소를 열고 코드 입력. 15분 안에 해야 한다 |
-| 디스코드 서버·봇 | 미확인 | |
+| 디스코드 봇 | 3 | 캡차 2번, 2단계 인증 1번. 로그인은 미리 해 둔다 |
 
 ## 1. Oracle VM
 
@@ -163,6 +163,53 @@ API 에 있는 모델이 전부 되는 것은 아니다. 이 계정에서 `herme
 
 모델을 바꾼 뒤에는 게이트웨이를 재시작한다: `systemctl --user restart hermes-gateway`
 
-## 6. 이후 (미확인)
+## 6. 디스코드 봇 (사람 개입 3번: 캡차 2번, 2단계 인증 1번)
+
+Aside 로 `discord.com/developers/applications` 를 조작한다. 사람이 미리 로그인해 둬야 한다.
+준비물과 사람이 할 일은 `docs/prerequisites.md` 에 있다.
+
+### 순서
+
+1. **신규 애플리케이션** → 이름 입력, 약관 체크박스, **만들기**
+   - 약관 체크박스는 클릭으로 안 바뀐다 ("Checkbox click did not change checked state").
+     focus 한 뒤 Space 키로 누른다. intent 스위치도 같은 방식으로 누른다.
+   - **만들기** 를 누르면 hCaptcha 가 뜬다. 사람이 푼다. (개입 1)
+2. 왼쪽 **봇** 메뉴 → Server Members Intent, Message Content Intent 켜기 → **변경 사항 저장**
+   - 새로고침해서 두 스위치가 켜진 채로 남아 있는지 확인한다.
+   - "공개 봇" 은 켠 채로 둔다. Hermes 문서(discord.md 126행)의 권장이다.
+3. **토큰 초기화** → **네, 할게요!**
+   - "다단계 인증" 창이 뜬다. 사람이 6자리 코드를 넣는다. (개입 2)
+   - 제출하면 토큰이 화면에 한 번만 표시된다.
+4. 토큰을 VM 으로 옮긴다. Aside 출력에서 SSH 로 바로 파이프해서 채팅과 로그에 값이 남지 않게 한다.
+
+   ```bash
+   cat playbooks/lib/discord-helpers.js <토큰을 TOK=... 한 줄로 출력하는 스크립트> | aside repl --file - 2>/dev/null \
+     | grep -oE '^TOK=[A-Za-z0-9_.-]+$' \
+     | ssh -i ~/.ssh/oracle.key ubuntu@<IP> 'IFS= read -r line; t="${line#TOK=}"; ...'
+   ```
+
+   VM 쪽은 `~/.hermes/.env` 의 `DISCORD_BOT_TOKEN=` 줄을 교체하고 권한을 600 으로 맞춘다.
+   화면을 읽을 때는 토큰 형식 `[\w-]{20,}\.[\w-]{5,8}\.[\w-]{20,}` 을 가리고 출력한다.
+5. 토큰 검증: VM 에서 `curl -H "Authorization: Bot $t" https://discord.com/api/v10/users/@me`.
+   봇 이름이 돌아오면 정상이다.
+6. 초대: `https://discord.com/oauth2/authorize?client_id=<앱 ID>&scope=bot+applications.commands&permissions=309237763136`
+   - 앱 ID 는 개발자 포털 주소의 숫자다.
+   - "서버에 추가" 에서 서버를 고르고 **계속하기** → 권한 8개 확인 → **승인**
+   - 권한: 채널 보기, 메시지 보내기, 스레드에서 메시지 보내기, 공개 스레드 만들기, 링크 첨부, 파일 첨부,
+     메시지 기록 보기, 반응 추가하기. 관리자 권한은 없다.
+   - **승인** 을 누르면 hCaptcha 가 한 번 더 뜬다. 사람이 푼다. (개입 3)
+
+### 함정
+
+- `aside repl` 로 연 탭은 사람 화면에 보이지 않는다. 사람이 봐야 하는 페이지는 `open -a Aside <주소>` 로 연다.
+- `aside <주소>` 는 Aside 의 AI 를 거쳐서 크레딧이 없으면 `402 Insufficient credits` 로 실패한다.
+  `aside repl` 과 `open -a Aside` 는 크레딧 없이 된다.
+- 로그인된 브라우저를 써도 캡차는 뜬다. 앱 생성과 봇 초대에서 각각 한 번씩 떴다.
+
+## 7. 이후 (미확인)
+
+- 초대 캡차 통과 뒤 봇이 서버에 들어갔는지 확인
+- 사용자 ID, 채널 ID 조회와 `DISCORD_ALLOWED_USERS`, `DISCORD_HOME_CHANNEL` 설정
+- 게이트웨이 재시작, 디스코드에서 대화 확인, 대화 중 메모리
 
 - 디스코드 봇 생성과 `DISCORD_BOT_TOKEN`, `DISCORD_ALLOWED_USERS`, `DISCORD_HOME_CHANNEL`
