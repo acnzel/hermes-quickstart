@@ -145,6 +145,24 @@ hermes -z "hostname 을 확인해서 알려줘"     # 한 번 호출해 확인
 `gpt-6-sol` 은 Hermes 소스(`hermes_cli/codex_models.py`)가 구독용 기본값으로 두는 모델이다.
 요금제별로 쓸 수 있는 모델이 다른지는 미확인이다.
 
+### 구독 로그인으로 되는 모델과 안 되는 모델
+
+API 에 있는 모델이 전부 되는 것은 아니다. 이 계정에서 `hermes -z "1+1은?" -m <모델>` 로 하나씩 호출했다.
+
+| 모델 | 결과 |
+|---|---|
+| `gpt-6-sol` | 됨 |
+| `gpt-6-luna` | 됨 (7초) |
+| `gpt-5.6-luna` | 됨 (8초) |
+| `gpt-5-nano` | 거절. HTTP 400 "not supported when using Codex with a ChatGPT account" |
+| `gpt-5-mini` | 거절 |
+| `gpt-5.4-mini` | 거절. Hermes 의 구독용 목록에는 들어 있는데도 거절됐다 |
+
+가벼운 모델을 원하면 luna 계열을 쓴다. 설정 스크립트는 모델을 바꾼 뒤 반드시 한 번 호출해서
+확인해야 한다. 거절된 모델을 넣어 두면 봇이 모든 메시지에 오류로 답한다.
+
+모델을 바꾼 뒤에는 게이트웨이를 재시작한다: `systemctl --user restart hermes-gateway`
+
 ## 6. 이후 (미확인)
 
 - 디스코드 봇 생성과 `DISCORD_BOT_TOKEN`, `DISCORD_ALLOWED_USERS`, `DISCORD_HOME_CHANNEL`
