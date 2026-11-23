@@ -21,6 +21,7 @@
 
 const TOKEN_RE = /[\w-]{20,}\.[\w-]{5,8}\.[\w-]{20,}/;
 const SAVE = /button "(변경 사항 저장|Save Changes)"/;
+const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const appId = () => (page.url().match(/applications\/(\d+)/) || [])[1];
 
 // 디스코드의 체크박스와 스위치는 클릭으로 안 바뀐다. focus 한 뒤 Space 로 누른다.
@@ -66,7 +67,7 @@ if (STEP === "create") {
   await page.goto("https://discord.com/developers/applications");
   await sleep(4000);
   // 목록의 링크 이름은 머리글자가 앞에 붙는다. 예: "HV Hermes Verify"
-  await clk(new RegExp(`link "[^"]*${APP_NAME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+  await clk(new RegExp(`link "[^"]*${escapeRe(APP_NAME)}"`));
   await sleep(4000);
   await clk(/link "(봇|Bot)"/);
   await sleep(4000);
@@ -109,7 +110,7 @@ if (STEP === "create") {
   await sleep(6000);
   await clk(/combobox "(서버에 추가:|Add to server:?)"/);
   await sleep(1500);
-  await clk(new RegExp(`option "${SERVER_NAME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+  await clk(new RegExp(`option "${escapeRe(SERVER_NAME)}"`));
   await sleep(1200);
   await clk(/button "(계속하기|Continue)"/);
   await sleep(3500);
