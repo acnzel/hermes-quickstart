@@ -233,3 +233,10 @@ systemctl --user restart hermes-gateway     # 재시작
 | `docs/use-cases.md` | 다른 사람들이 공개한 활용 사례 다섯 가지와 출처 |
 | `playbooks/` | Oracle·디스코드 화면을 조작하는 Aside 스크립트 |
 | `scripts/` | 서버에서 도는 스크립트 (설치와 연결, 주간 업데이트) |
+
+## 라이선스
+
+[MIT](LICENSE). 자유롭게 가져다 쓰고 고쳐도 됩니다.
+
+이 라이선스는 이 레포의 문서와 스크립트에만 해당합니다. Hermes Agent 자체는 Nous Research 의 것이고
+[별도 라이선스](https://github.com/NousResearch/hermes-agent/blob/main/LICENSE)를 따릅니다.
