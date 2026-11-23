@@ -236,7 +236,7 @@ hermes send -t discord "연결 테스트"                    # 홈 채널로 전
 
 | 측정 | 값 |
 |---|---|
-| 재시작부터 연결까지 | 13초 (`Connected as Hermes VM#4062`) |
+| 재시작부터 연결까지 | 13초 (`Connected as <봇 이름>#<번호>`) |
 | `hermes send` | 성공. 홈 채널에 메시지 도착 |
 | 디스코드 연결 후 게이트웨이 메모리 | 272MB (연결 전 219MB) |
 | 시스템 가용 메모리 | 461MB / 952MB, 스왑 11MB |
@@ -288,8 +288,35 @@ DISCORD_FREE_RESPONSE_CHANNELS=<홈 채널 ID>
 
 세팅 스크립트의 완료 조건은 "게이트웨이가 떴다" 가 아니라 로그의 `inbound message` 와 `response ready` 다.
 
-## 9. 미확인으로 남은 것
+## 9. 주간 업데이트 (사람 개입 0번)
 
+스크립트: `scripts/weekly-update.sh`, `scripts/install-weekly-update.sh`
+
+```bash
+scp -i ~/.ssh/oracle.key scripts/weekly-update.sh scripts/install-weekly-update.sh ubuntu@<공인 IP>:/tmp/
+ssh -i ~/.ssh/oracle.key ubuntu@<공인 IP> 'bash /tmp/install-weekly-update.sh'
+```
+
+- systemd 사용자 타이머 `hermes-weekly-update.timer` 가 매주 월요일 04:00 (VM 시간대) 에 돈다.
+  `Persistent=true` 라서 그 시간에 VM 이 꺼져 있었으면 켜진 뒤에 한 번 돈다.
+- 하는 일: `hermes update --yes` → 게이트웨이가 active 인지 최대 2분 확인 → 꺼져 있으면 재시작 → 결과를 로그에 기록.
+- `hermes update` 는 게이트웨이를 스스로 멈췄다가 새 코드로 다시 띄운다 (공식 문서 updating.md).
+  그래서 배치가 따로 재시작하는 것은 게이트웨이가 올라오지 않았을 때뿐이다.
+- 디스코드 알림은 버전이 바뀌었을 때, 업데이트가 실패했을 때, 게이트웨이가 올라오지 않았을 때만 보낸다.
+- 기록: `~/.hermes/logs/weekly-update.log`
+
+| 측정 (업데이트할 것이 없는 상태에서 수동 1회 실행) | 값 |
+|---|---|
+| `systemctl --user start hermes-weekly-update.service` | success, 91초 |
+| 실행 뒤 게이트웨이 | active |
+| 로그 | `끝: update exit=0, v0.23.3 → v0.23.3, gateway=active` |
+
+실제로 새 버전이 나왔을 때의 동작과 소요 시간은 미확인이다. 첫 설치가 24분 걸렸으므로
+타이머의 제한 시간을 90분(`TimeoutStartSec=5400`)으로 잡았다.
+
+## 10. 미확인으로 남은 것
+
+- 새 버전이 있을 때의 주간 업데이트 (소요 시간, 알림, 실패 시 복구)
 - 2단계 인증을 안 켠 디스코드 계정의 토큰 발급 화면
 - 긴 대화나 도구를 여러 번 쓰는 작업에서의 메모리
 - ChatGPT 요금제별로 쓸 수 있는 모델 차이
