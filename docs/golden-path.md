@@ -69,13 +69,45 @@ bash ~/install.sh --skip-browser --skip-computer-use --non-interactive
 | 측정 | 값 |
 |---|---|
 | 설치된 버전 | v0.23.3 (stable) |
-| 설치 중 가용 메모리 최저 | 321MB (설치 진행 중 측정, 최종값 미확인) |
-| 설치 중 스왑 최대 | 40MB (위와 같음) |
-| 소요 시간 | 15분 초과, 최종값 미확인. 병목은 CPU (로드 3 이상) |
+| 소요 시간 | 1450초 (약 24분). 병목은 CPU (로드 3 이상) |
+| 설치 중 가용 메모리 최저 | 211MB |
+| 설치 중 스왑 최대 | 1031MB (웹 UI 빌드 단계). **스왑 없이는 1GB VM 에서 설치가 안 된다고 봐야 한다** |
+| 설치 후 디스크 | `~/.hermes` 2.6G, 루트 38G 남음 |
 
-## 4. 이후 (미확인)
+설치 뒤 `hermes` 는 `~/.local/bin` 에 있다. SSH 로 명령을 보낼 때는 `export PATH=$HOME/.local/bin:$PATH` 를 앞에 붙인다.
 
-- `hermes doctor`, 게이트웨이 시스템 서비스 등록
-- 대기 상태 메모리 사용량
-- `hermes auth add openai-codex --no-browser` 기기 승인
+### 디스코드 의존성
+
+기본 설치에는 `discord.py` 가 없다. `hermes doctor` 가 "discord.py (optional, not installed)" 로 알려 준다.
+
+```bash
+hermes pm install --extra discord    # 160초
+```
+
+## 4. 게이트웨이 서비스 등록
+
+```bash
+sudo loginctl enable-linger ubuntu
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+hermes gateway install --start-now
+systemctl --user is-active hermes-gateway
+```
+
+- **`sudo hermes gateway install --system` 은 쓰지 않는다.** root 로 실행하면 Hermes 가 `/root/.hermes` 를
+  데이터 폴더로 잡고 "owned by uid 1001" 오류로 멈춘다. 사용자 서비스와 linger 조합이면 sudo 없이
+  부팅 때 자동으로 뜬다.
+- SSH 비대화 세션에는 `XDG_RUNTIME_DIR` 이 없어서 `systemctl --user` 가 실패한다. 직접 넣어 준다.
+
+| 측정 (재부팅 후 대기 상태, 플랫폼 미연결) | 값 |
+|---|---|
+| 재부팅 후 자동 시작 | 됨 (부팅 2분 안에 active) |
+| 게이트웨이 메모리 | 219MB |
+| 시스템 가용 메모리 | 606MB / 952MB |
+| 스왑 사용 | 0 |
+
+메신저를 연결하고 대화 중일 때의 메모리는 미확인이다.
+
+## 5. 이후 (미확인)
+
+- `hermes auth add openai-codex --type oauth --no-browser` 기기 승인
 - 디스코드 봇 생성과 `DISCORD_BOT_TOKEN`, `DISCORD_ALLOWED_USERS`, `DISCORD_HOME_CHANNEL`
